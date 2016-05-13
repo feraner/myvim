@@ -35,9 +35,10 @@ filetype plugin indent on                             " required!
 filetype plugin on                                    "针对不同的文件类型加载对应的插件
 filetype plugin indent on                             "启用缩进
 set smartindent                                       "启用智能对齐方式
-set expandtab                                         "将Tab键转换为空格
+"set expandtab                                         "将Tab键转换为空格
 set tabstop=4                                         "设置Tab键的宽度，可以更改，如：宽度为2
 set shiftwidth=4                                      "换行时自动缩进宽度，可更改（宽度同tabstop）
+set list                                              "显示特殊字符
 set smarttab                                          "指定按一次backspace就删除shiftwidth宽度
 set hlsearch                                          "设定搜索高调度反白
 set background=dark
@@ -64,6 +65,8 @@ set fileencodings=ucs-bom,utf-8,gbk,cp936,latin-1     "设置支持打开的文�
 set fileformat=unix                                   "设置新（当前）文件的<EOL>格式，可以更改，如：dos（windows系统常用）
 set fileformats=unix,dos,mac                          "给出文件的<EOL>格式类型
 
+"=============================== 个性配置========================
+set listchars=tab:−−,trail:•
 
 
 "======================= NERDTree Config=====================
