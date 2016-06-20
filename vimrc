@@ -67,6 +67,8 @@ set fileformats=unix,dos,mac                          "给出文件的<EOL>格�
 
 "=============================== 个性配置========================
 set listchars=tab:−−,trail:•
+set statusline=%F%m%r%h%w%=[POS=%4l,%3v]\ [%p%%]\ [LEN=%L]
+au BufWinEnter * let w:m2=matchadd('Error', '\%>' . 120 . 'v.\+', -1)
 
 
 "======================= NERDTree Config=====================
@@ -97,7 +99,6 @@ colorscheme molokai
 
 "=======================syntastic=======================
 "phpcs，tab 4个空格，编码参考使用Zend风格                                                                                       
-"let g:syntastic_phpcs_conf = "-n --tab-width=4 --standard=Zend"
 "let g:syntastic_check_on_open = 1                       "每次打开buffer就执行检测
 "let g:syntastic_php_checkers=['php', 'phpcs', 'phpmd']
 "let g:syntastic_loc_list_height = 5
@@ -106,7 +107,9 @@ colorscheme molokai
 set statusline+=%#warningmsg#
 set statusline+=%{SyntasticStatuslineFlag()}
 set statusline+=%*
-let g:syntastic_php_checkers=['php', 'phpcs', 'phpmd']
+let g:syntastic_phpcs_conf = "-n --tab-width=4 --standard=Zend"
+"let g:syntastic_php_checkers=['php', 'phpcs', 'phpmd']
+let g:syntastic_php_checkers=['php', 'phpcs']
 let g:syntastic_always_populate_loc_list = 1
 let g:syntastic_loc_list_height = 5
 let g:syntastic_auto_loc_list = 1
