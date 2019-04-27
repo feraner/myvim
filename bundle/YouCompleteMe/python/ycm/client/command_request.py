@@ -19,14 +19,9 @@ from __future__ import unicode_literals
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
-from future import standard_library
-standard_library.install_aliases()
+# Not installing aliases from python-future; it's unreliable and slow.
 from builtins import *  # noqa
 
-from requests.exceptions import ReadTimeout
-import vim
-
-from ycmd.responses import ServerError
 from ycm.client.base_request import ( BaseRequest, BuildRequestData,
                                       HandleServerException )
 from ycm import vimsupport
@@ -40,25 +35,26 @@ def _EnsureBackwardsCompatibility( arguments ):
 
 
 class CommandRequest( BaseRequest ):
-  def __init__( self, arguments, completer_target = None ):
+  def __init__( self, arguments, completer_target = None, extra_data = None ):
     super( CommandRequest, self ).__init__()
     self._arguments = _EnsureBackwardsCompatibility( arguments )
     self._completer_target = ( completer_target if completer_target
                                else 'filetype_default' )
+    self._extra_data = extra_data
     self._response = None
 
 
   def Start( self ):
     request_data = BuildRequestData()
+    if self._extra_data:
+      request_data.update( self._extra_data )
     request_data.update( {
       'completer_target': self._completer_target,
       'command_arguments': self._arguments
     } )
-    try:
+    with HandleServerException():
       self._response = self.PostDataToHandler( request_data,
                                                'run_completer_command' )
-    except ( ServerError, ReadTimeout ) as e:
-      HandleServerException( e )
 
 
   def Response( self ):
@@ -93,8 +89,8 @@ class CommandRequest( BaseRequest ):
   def _HandleGotoResponse( self ):
     if isinstance( self._response, list ):
       vimsupport.SetQuickFixList(
-              [ _BuildQfListItem( x ) for x in self._response ] )
-      vim.eval( 'youcompleteme#OpenGoToList()' )
+        [ _BuildQfListItem( x ) for x in self._response ] )
+      vimsupport.OpenQuickFixList( focus = True, autoclose = True )
     else:
       vimsupport.JumpToLocation( self._response[ 'filepath' ],
                                  self._response[ 'line_num' ],
@@ -103,29 +99,40 @@ class CommandRequest( BaseRequest ):
 
   def _HandleFixitResponse( self ):
     if not len( self._response[ 'fixits' ] ):
-      vimsupport.EchoText( "No fixits found for current line" )
+      vimsupport.PostVimMessage( 'No fixits found for current line',
+                                 warning = False )
     else:
-      chunks = self._response[ 'fixits' ][ 0 ][ 'chunks' ]
       try:
-        vimsupport.ReplaceChunks( chunks )
+        fixit_index = 0
+
+        # When there are multiple fixit suggestions, present them as a list to
+        # the user hand have her choose which one to apply.
+        if len( self._response[ 'fixits' ] ) > 1:
+          fixit_index = vimsupport.SelectFromList(
+            "Multiple FixIt suggestions are available at this location. "
+            "Which one would you like to apply?",
+            [ fixit[ 'text' ] for fixit in self._response[ 'fixits' ] ] )
+
+        vimsupport.ReplaceChunks(
+          self._response[ 'fixits' ][ fixit_index ][ 'chunks' ] )
       except RuntimeError as e:
-        vimsupport.PostMultiLineNotice( str( e ) )
+        vimsupport.PostVimMessage( str( e ) )
 
 
   def _HandleBasicResponse( self ):
-    vimsupport.EchoText( self._response )
+    vimsupport.PostVimMessage( self._response, warning = False )
 
 
   def _HandleMessageResponse( self ):
-    vimsupport.EchoText( self._response[ 'message' ] )
+    vimsupport.PostVimMessage( self._response[ 'message' ], warning = False )
 
 
   def _HandleDetailedInfoResponse( self ):
     vimsupport.WriteToPreviewWindow( self._response[ 'detailed_info' ] )
 
 
-def SendCommandRequest( arguments, completer ):
-  request = CommandRequest( arguments, completer )
+def SendCommandRequest( arguments, completer, extra_data = None ):
+  request = CommandRequest( arguments, completer, extra_data )
   # This is a blocking call.
   request.Start()
   request.RunPostCommandActionsIfNeeded()

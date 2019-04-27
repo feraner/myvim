@@ -19,14 +19,12 @@ from __future__ import unicode_literals
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
-from future import standard_library
-standard_library.install_aliases()
+# Not installing aliases from python-future; it's unreliable and slow.
 from builtins import *  # noqa
 
 from future.utils import iteritems
 from ycm import vimsupport
 from ycmd import user_options_store
-from ycmd import request_wrap
 from ycmd import identifier_utils
 
 YCM_VAR_PREFIX = 'ycm_'
@@ -35,17 +33,16 @@ YCM_VAR_PREFIX = 'ycm_'
 def BuildServerConf():
   """Builds a dictionary mapping YCM Vim user options to values. Option names
   don't have the 'ycm_' prefix."""
-
-  vim_globals = vimsupport.GetReadOnlyVimGlobals( force_python_objects = True )
+  # We only evaluate the keys of the vim globals and not the whole dictionary
+  # to avoid unicode issues.
+  # See https://github.com/Valloric/YouCompleteMe/pull/2151 for details.
+  keys = vimsupport.GetVimGlobalsKeys()
   server_conf = {}
-  for key, value in iteritems( vim_globals ):
+  for key in keys:
     if not key.startswith( YCM_VAR_PREFIX ):
       continue
-    try:
-      new_value = int( value )
-    except:
-      new_value = value
     new_key = key[ len( YCM_VAR_PREFIX ): ]
+    new_value = vimsupport.VimExpressionToPythonType( 'g:' + key )
     server_conf[ new_key ] = new_value
 
   return server_conf
@@ -53,26 +50,17 @@ def BuildServerConf():
 
 def LoadJsonDefaultsIntoVim():
   defaults = user_options_store.DefaultOptions()
-  vim_defaults = {}
   for key, value in iteritems( defaults ):
-    vim_defaults[ 'ycm_' + key ] = value
-
-  vimsupport.LoadDictIntoVimGlobals( vim_defaults, overwrite = False )
-
-
-def CompletionStartColumn():
-  return ( request_wrap.CompletionStartColumn(
-      vimsupport.CurrentLineContents(),
-      vimsupport.CurrentColumn() + 1,
-      vimsupport.CurrentFiletypes()[ 0 ] ) - 1 )
+    new_key = 'g:ycm_' + key
+    if not vimsupport.VariableExists( new_key ):
+      vimsupport.SetVariableValue( new_key, value )
 
 
 def CurrentIdentifierFinished():
-  current_column = vimsupport.CurrentColumn()
+  line, current_column = vimsupport.CurrentLineContentsAndCodepointColumn()
   previous_char_index = current_column - 1
   if previous_char_index < 0:
     return True
-  line = vimsupport.CurrentLineContents()
   filetype = vimsupport.CurrentFiletypes()[ 0 ]
   regex = identifier_utils.IdentifierRegexForFiletype( filetype )
 
@@ -85,10 +73,9 @@ def CurrentIdentifierFinished():
 
 
 def LastEnteredCharIsIdentifierChar():
-  current_column = vimsupport.CurrentColumn()
+  line, current_column = vimsupport.CurrentLineContentsAndCodepointColumn()
   if current_column - 1 < 0:
     return False
-  line = vimsupport.CurrentLineContents()
   filetype = vimsupport.CurrentFiletypes()[ 0 ]
   return (
     identifier_utils.StartOfLongestIdentifierEndingAtIndex(
